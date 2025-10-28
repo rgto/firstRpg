@@ -3,23 +3,30 @@ using System;
 
 public partial class Player : CharacterBody3D
 {
-	//[Export] public SpringArm3D CameraSpringArm { get; set; }
+	[Export]
+	public float AnimationDecay { get; set; } = 20.0f;
 	public const float Speed = 5.0f;
 	public const float JumpVelocity = 4.5f;
 	// Stores the x/y direction to player is trying to look in.
 	public Vector2 _look = Vector2.Zero;
-	private SpringArm3D _cameraSpringArm;
-	private Node3D _horizontalPivot; 
-	private Node3D _verticalPivot;
+	public SpringArm3D _cameraSpringArm;
+	public Node3D _horizontalPivot; 
+	public Node3D _verticalPivot;
 	public float MouseSensitivity = 0.00075f;
 	public float MinBoundary = -60f;
 	public float MaxBoundary = 10f;
+	public Node3D _rigPivot;
+	public Node3D _rig;
+	public AnimationTree _animationTree;
 	public override void _Ready()
 	{
 		Input.MouseMode = Input.MouseModeEnum.Captured;
 		_cameraSpringArm = GetNode<SpringArm3D>("SmoothCameraArm");
 		_horizontalPivot = GetNode<Node3D>("HorizontalPivot");
 		_verticalPivot = GetNode<Node3D>("HorizontalPivot/VerticalPivot");
+		_rigPivot = GetNode<Node3D>("RigPivot");
+		_rig = GetNode<Node3D>("RigPivot/Rig");
+		_animationTree = _rig.GetNode<AnimationTree>("AnimationTree");
 	}
 
     public override void _UnhandledInput(InputEvent @event)
@@ -59,10 +66,12 @@ public partial class Player : CharacterBody3D
 		}
 
 		Vector3 direction = getMovimentDirection();
+
 		if (direction != Vector3.Zero)
 		{
 			velocity.X = direction.X * Speed;
 			velocity.Z = direction.Z * Speed;
+			LookTowardDirection(direction, delta);
 		}
 		else
 		{
@@ -113,5 +122,20 @@ public partial class Player : CharacterBody3D
 		// 2. Reseta a variável _look para zero
 		// Vector2.ZERO vira Vector2.Zero (PascalCase).
 		_look = Vector2.Zero;
+	}
+
+	public void LookTowardDirection(Vector3 direction, double delta)
+	{
+		Transform3D targetTransform = _rigPivot.GlobalTransform.LookingAt(
+			_rigPivot.GlobalPosition + direction,
+			Vector3.Up, true
+		);
+
+		float playerInterpolationWeight = 1.0f - Mathf.Exp(-AnimationDecay * (float)delta);
+		
+		_rigPivot.GlobalTransform = _rigPivot.GlobalTransform.InterpolateWith(
+			targetTransform,
+			playerInterpolationWeight
+		);
 	}
 }
