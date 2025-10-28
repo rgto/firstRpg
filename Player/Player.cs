@@ -8,10 +8,18 @@ public partial class Player : CharacterBody3D
 	public const float JumpVelocity = 4.5f;
 	// Stores the x/y direction to player is trying to look in.
 	public Vector2 _look = Vector2.Zero;
+	private SpringArm3D _cameraSpringArm;
+	private Node3D _horizontalPivot; 
+	private Node3D _verticalPivot;
 	public float MouseSensitivity = 0.00075f;
+	public float MinBoundary = -60f;
+	public float MaxBoundary = 10f;
 	public override void _Ready()
 	{
 		Input.MouseMode = Input.MouseModeEnum.Captured;
+		_cameraSpringArm = GetNode<SpringArm3D>("SmoothCameraArm");
+		_horizontalPivot = GetNode<Node3D>("HorizontalPivot");
+		_verticalPivot = GetNode<Node3D>("HorizontalPivot/VerticalPivot");
 	}
 
     public override void _UnhandledInput(InputEvent @event)
@@ -50,10 +58,7 @@ public partial class Player : CharacterBody3D
 			velocity.Y = JumpVelocity;
 		}
 
-		// Get the input direction and handle the movement/deceleration.
-		// As good practice, you should replace UI actions with custom gameplay actions.
-		Vector2 inputDir = Input.GetVector("ui_a", "ui_d", "ui_w", "ui_s");
-		Vector3 direction = (Transform.Basis * new Vector3(inputDir.X, 0, inputDir.Y)).Normalized();
+		Vector3 direction = getMovimentDirection();
 		if (direction != Vector3.Zero)
 		{
 			velocity.X = direction.X * Speed;
@@ -69,25 +74,44 @@ public partial class Player : CharacterBody3D
 		MoveAndSlide();
 	}
 
+	public Vector3 getMovimentDirection()
+    {
+		Vector2 inputDir = Input.GetVector("ui_a", "ui_d", "ui_w", "ui_s");
+		Vector3 inputVector = new Vector3(inputDir.X, 0, inputDir.Y).Normalized();
+		return _horizontalPivot.GlobalTransform.Basis * inputVector;
+    }
+
 	public void FrameCameraRotation()
 	{
-		
-		var SpringArm3D = GetNode<SpringArm3D>("SpringArm3D");
-        // 1. Gira o SpringArm3D em torno do eixo Y
-        // O $SpringArm3D em GDScript vira o acesso à sua variável CameraSpringArm em C#.
-        // rotate_y() vira RotateY().
-        // _look.x vira _look.X.
-        if (SpringArm3D != null) // Sempre bom verificar se a referência não é nula
-        {
-            SpringArm3D.RotateY(_look.X);
-        }
-        else
-        {
-            GD.PrintErr("Erro: CameraSpringArm não foi atribuído!");
-        }
 
-        // 2. Reseta a variável _look para zero
-        // Vector2.ZERO vira Vector2.Zero (PascalCase).
-        _look = Vector2.Zero;
-    }
+		// 1. Gira o SpringArm3D em torno do eixo Y
+		// O $SpringArm3D em GDScript vira o acesso à sua variável CameraSpringArm em C#.
+		// rotate_y() vira RotateY().
+		// _look.x vira _look.X.
+		if (_cameraSpringArm != null) // Sempre bom verificar se a referência não é nula
+		{
+			_horizontalPivot.RotateY(_look.X);
+			_verticalPivot.RotateX(_look.Y);
+
+			Vector3 currentRotation = _verticalPivot.Rotation;
+
+			currentRotation.X = Mathf.Clamp(
+				currentRotation.X,
+				Mathf.DegToRad(MinBoundary),
+				Mathf.DegToRad(MaxBoundary)
+			);
+
+			//_cameraSpringArm.GlobalTransform = _verticalPivot.GlobalTransform;
+			_verticalPivot.Rotation = currentRotation;
+
+		}
+		else
+		{
+			GD.PrintErr("Erro: CameraSpringArm não foi atribuído!");
+		}
+
+		// 2. Reseta a variável _look para zero
+		// Vector2.ZERO vira Vector2.Zero (PascalCase).
+		_look = Vector2.Zero;
+	}
 }
